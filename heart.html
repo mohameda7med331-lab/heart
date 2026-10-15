@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heart ❤️</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+  #start {
+    position: fixed; inset: 0; display: flex; justify-content: center; align-items: center;
+    background: #000; color: #8fc8ff; font-family: 'Segoe UI', Tahoma, sans-serif;
+    font-size: 1.6rem; cursor: pointer; z-index: 10; text-shadow: 0 0 15px #3a9bff;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="start">start ❤️</div>
+<audio id="song" src="song.mp3" loop></audio>
+<script>
+const WORDS       = ["Love You", "LOVE YOU", "love you", "Love You"];
+const CENTER_TEXT = "Love You";
+const COUNT       = 300;
+const COLOR       = "80,170,255";
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const song = document.getElementById('song');
+let W, H, DPR, particles = [], frame = 0;
+
+const BUILD = 300, HOLD = 480, TEXT_END = 600, FADE_END = 720;
+
+function resize() {
+  DPR = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  init();
+}
+
+function heartPoint(inside) {
+  if (!inside) {
+    const t = Math.random() * Math.PI * 2;
+    return {
+      x: 16 * Math.pow(Math.sin(t), 3),
+      y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))
+    };
+  }
+  while (true) {
+    const x = (Math.random() * 2 - 1) * 1.3, y = (Math.random() * 2 - 1) * 1.3;
+    const a = x * x + y * y - 1;
+    if (a * a * a - x * x * y * y * y <= 0) return { x: x * 12.5, y: -y * 12.5 + 1 };
+  }
+}
+
+function init() {
+  particles = [];
+  const scale = Math.min(W, H * 0.8) / 38;
+  const cx = W / 2, cy = H * 0.42;
+  for (let i = 0; i < COUNT; i++) {
+    const hp = heartPoint(Math.random() < 0.45);
+    const tx = cx + hp.x * scale, ty = cy + hp.y * scale;
+    particles.push({
+      tx, ty,
+      x: tx + (Math.random() - 0.5) * W * 0.9,
+      y: ty + (Math.random() - 0.5) * H * 0.9,
+      word: WORDS[Math.floor(Math.random() * WORDS.length)],
+      size: (Math.random() * 7 + 10) * Math.max(0.7, Math.min(1.4, W / 600)),
+      delay: ((ty - (cy - 14 * scale)) / (30 * scale)) * (BUILD * 0.7) + Math.random() * 60,
+      alpha: 0,
+      phase: Math.random() * 6.28,
+      speed: Math.random() * 0.05 + 0.03,
+      bold: Math.random() < 0.5
+    });
+  }
+  frame = 0;
+}
+
+function draw() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+
+  const fadeOut = frame > TEXT_END ? 1 - (frame - TEXT_END) / (FADE_END - TEXT_END) : 1;
+  const beat = 1 + Math.sin(frame * 0.07) * 0.012;
+  const cx = W / 2, cy = H * 0.42;
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (const p of particles) {
+    if (frame > p.delay && p.alpha < 255) p.alpha = Math.min(255, p.alpha + 14);
+    if (p.alpha <= 0) continue;
+
+    p.x += (p.tx - p.x) * 0.06;
+    p.y += (p.ty - p.y) * 0.06;
+
+    const flick = p.alpha >= 255 ? 0.75 + 0.25 * Math.sin(frame * p.speed + p.phase) : 1;
+    const a = (p.alpha / 255) * flick * Math.max(0, fadeOut);
+    if (a <= 0) continue;
+
+    const x = cx + (p.x - cx) * beat, y = cy + (p.y - cy) * beat;
+    ctx.font = (p.bold ? 'bold ' : '') + p.size + 'px Arial, sans-serif';
+    ctx.shadowColor = 'rgba(' + COLOR + ',' + a + ')';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = 'rgba(' + COLOR + ',' + a + ')';
+    ctx.fillText(p.word, x, y);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(220,240,255,' + a * 0.8 + ')';
+    ctx.fillText(p.word, x, y);
+  }
+
+  if (frame > HOLD) {
+    const ta = Math.min(1, (frame - HOLD) / 60) * Math.max(0, fadeOut);
+    ctx.font = 'italic bold ' + Math.max(28, W * 0.09) + 'px Georgia, serif';
+    ctx.shadowColor = 'rgba(255,255,255,' + ta + ')';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = 'rgba(255,255,255,' + ta + ')';
+    ctx.fillText(CENTER_TEXT, cx, cy);
+    ctx.shadowBlur = 0;
+  }
+
+  frame++;
+  if (frame > FADE_END + 40) init();
+  requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// البداية بعد الضغطة: الأغنية والأنيميشن مع بعض
+document.getElementById('start').addEventListener('click', function () {
+  this.style.display = 'none';
+  song.currentTime = 0;
+  song.play().catch(function () {});
+  init();
+  draw();
+});
+</script>
+</body>
+</html>
